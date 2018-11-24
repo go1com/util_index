@@ -40,8 +40,6 @@ abstract class IndexServiceTestCase extends TestCase
 
     protected function getApp(): IndexService
     {
-        putenv('ES_URL=http://localhost:9200');
-
         /** @var IndexService $app */
         $app = require __DIR__ . '/../public/index.php';
         $app['waitForCompletion'] = true;
