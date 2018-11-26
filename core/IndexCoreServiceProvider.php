@@ -126,12 +126,8 @@ class IndexCoreServiceProvider implements ServiceProviderInterface, BootableProv
         $c['consumer.assessor'] = function (Container $c) {
             return new EnrolmentAssessorConsumer(
                 $c['go1.client.es'],
-                $c['history.repository'],
                 $c['dbs']['default'],
-                $c['dbs']['go1_write'],
-                $c['dbs']['award_write'],
                 $c['formatter.enrolment'],
-                $c['waitForCompletion'],
                 $c['go1.client.mq']
             );
         };
