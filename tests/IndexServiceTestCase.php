@@ -4,19 +4,17 @@ namespace go1\util_index\tests;
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\Schema as DBSchema;
-use go1\clients\MqClient;
 use go1\util\DB;
 use go1\util\es\mock\EsInstallTrait;
 use go1\util\schema\InstallTrait;
-use go1\util\user\UserHelper;
 use go1\util_index\HistoryRepository;
 use go1\util_index\IndexSchema;
 use go1\util_index\IndexService;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\Request;
 
 abstract class IndexServiceTestCase extends TestCase
 {
+    use IndexQueueClientMockTrait;
     use IndexServiceTestHelperTrait;
     use InstallTrait;
     use EsInstallTrait;
@@ -70,7 +68,7 @@ abstract class IndexServiceTestCase extends TestCase
                 ->expects($this->any())
                 ->method('bulkLog')
                 ->willReturnCallback(function (array $response) {
-                    if (!$response['errors']) {
+                    if (empty($response['errors'])) {
                         return null;
                     }
 
@@ -99,75 +97,6 @@ abstract class IndexServiceTestCase extends TestCase
         $this->appInstall($app);
 
         return $app;
-    }
-
-    protected function mockMqClient(IndexService $app)
-    {
-        $app->extend('go1.client.mq', function () {
-            $mqClient = $this->getMockBuilder(MqClient::class)->disableOriginalConstructor()->setMethods(['queue', 'publish'])->getMock();
-
-            $mqClient
-                ->expects($this->any())
-                ->method('publish')
-                ->willReturnCallback(function ($body, $routingKey) {
-                    $this->messages[$routingKey][] = $body;
-                });
-
-            $mqClient
-                ->expects($this->any())
-                ->method('queue')
-                ->willReturnCallback(function ($body, $routingKey) {
-                    $this->messages[$routingKey][] = $body;
-                });
-
-            return $mqClient;
-        });
-    }
-
-    protected function mockMqClientToDoConsume(IndexService $app)
-    {
-        $app->extend('go1.client.mq', function () use ($app) {
-            $mock = $this
-                ->getMockBuilder(MqClient::class)
-                ->disableOriginalConstructor()
-                ->setMethods(['queue'])
-                ->getMock();
-
-            $mock
-                ->expects($this->any())
-                ->method('queue')
-                ->willReturnCallback(
-                    function ($body, $routingKey, $context) use ($app) {
-                        if (IndexService::WORKER_TASK_BULK == $routingKey) {
-                            foreach ($body as $msg) {
-                                $req = Request::create('/consume?jwt=' . UserHelper::ROOT_JWT, 'POST');
-                                $req->request->replace(['routingKey' => $msg['routingKey'], 'body' => (object) $msg['body']]);
-                                $res = $app->handle($req);
-                                $this->assertEquals(204, $res->getStatusCode());
-                            }
-
-                            $req = Request::create('/consume?jwt=' . UserHelper::ROOT_JWT, 'POST', [
-                                'routingKey' => $routingKey,
-                                'body'       => (object) [],
-                                'context'    => $context,
-                            ]);
-                            $res = $app->handle($req);
-                            $this->assertEquals(204, $res->getStatusCode());
-
-                            return true;
-                        }
-
-                        $req = Request::create('/consume?jwt=' . UserHelper::ROOT_JWT, 'POST');
-                        $req->request->replace(['routingKey' => $routingKey, 'body' => (object) $body]);
-                        $res = $app->handle($req);
-                        $this->assertEquals(204, $res->getStatusCode());
-
-                        return true;
-                    }
-                );
-
-            return $mock;
-        });
     }
 
     protected function appInstall(IndexService $app)

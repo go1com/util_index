@@ -2,8 +2,11 @@
 
 namespace go1\util_index;
 
+use Elasticsearch\Client;
+use Elasticsearch\ClientBuilder;
 use go1\util\consume\ConsumeController;
 use go1\util_index\controller\InstallController;
+use go1\util_index\es_writer\EsTransport;
 use go1\util_index\task\TaskRepository;
 use Pimple\Container;
 use Pimple\ServiceProviderInterface;
@@ -56,6 +59,24 @@ class IndexServiceProvider implements ServiceProviderInterface, BootableProvider
                 $c['go1.client.es']
             );
         };
+
+        if ($c->offsetExists('esWriter')) {
+            if (!empty($c['esWriter']['enabled'])) {
+                $c['go1.client.es-writer-transport'] = function (Container $c) {
+                    return new EsTransport($c['go1.client.mq'], $c['esWriter']['routingKey']);
+                };
+
+                $c->extend('go1.client.es', function (Client $client) use ($c) {
+                    /** @var EsTransport $transport */
+                    $transport = $c['go1.client.es-writer-transport'];
+                    $transport
+                        ? $transport->setTransport($client->transport)
+                        : $client->transport;
+
+                    return ClientBuilder::create()->setTransport($transport)->build();
+                });
+            }
+        }
     }
 
     public function boot(Application $app)
