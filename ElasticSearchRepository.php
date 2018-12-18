@@ -87,7 +87,20 @@ class ElasticSearchRepository
 
     public function create(array $data, array $indices)
     {
-        $this->bulk($data, $indices);
+        $params = [
+            'routing' => $data['routing'] ?: Schema::INDEX,
+            'index'   => $data['index'] ?: Schema::INDEX,
+            'type'    => $data['type'],
+            'id'      => $data['id'],
+            'body'    => $data['body'],
+            'refresh' => $this->waitForCompletion,
+        ];
+
+        try {
+            $this->client->create($params);
+        } catch (ElasticsearchException $e) {
+            $this->history->write($params['type'], $params['id'], $e->getCode(), $e->getMessage());
+        }
     }
 
     public function update(array $data, array $indices)
