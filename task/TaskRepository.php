@@ -11,6 +11,7 @@ use go1\util\es\Schema;
 use go1\util\portal\PortalHelper;
 use go1\util_index\IndexService;
 use go1\util_index\ReindexInterface;
+use JsonSerializable;
 use ONGR\ElasticsearchDSL\BuilderInterface;
 use Pimple\Container;
 use Psr\Log\LoggerInterface;
@@ -36,7 +37,8 @@ class TaskRepository
         Client $client,
         Container $container,
         LoggerInterface $logger
-    ) {
+    )
+    {
         $this->db = $db;
         $this->go1 = $go1;
         $this->queue = $mqClient;
@@ -53,12 +55,28 @@ class TaskRepository
         return $task->id;
     }
 
+    public function createItem(TaskItem $taskItem)
+    {
+        $this->db->insert('index_task_item', $taskItem->jsonSerialize());
+        $taskItem->id = $this->db->lastInsertId('index_task_item');
+
+        return $taskItem;
+    }
+
     public function update(Task $task)
     {
         $task->updated = time();
         $this->db->update('index_task', $task->jsonSerialize(), ['id' => $task->id]);
 
         return true;
+    }
+
+    public function updateTaskItem(TaskItem $taskItem)
+    {
+        $taskItem->updated = time();
+        $this->db->update('index_task_item', $taskItem->jsonSerialize(), ['id' => $taskItem->id]);
+
+        return $taskItem;
     }
 
     public function delete(Task $task)
@@ -86,6 +104,19 @@ class TaskRepository
         return false;
     }
 
+    public function loadItem(int $id): ?TaskItem
+    {
+        $item = $this
+            ->db
+            ->executeQuery('SELECT * FROM index_task_item WHERE id = ?', [$id])
+            ->fetch(DB::OBJ);
+        if (!$item) {
+            return null;
+        }
+
+        return TaskItem::create($item);
+    }
+
     private function getAlias(Task $task)
     {
         try {
@@ -93,7 +124,8 @@ class TaskRepository
             $alias = $alias ? array_keys($alias) : [];
 
             return $alias[0] ?? null;
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
         }
 
         return null;
@@ -198,88 +230,89 @@ class TaskRepository
         $this->verify($task);
     }
 
-    public function verify(Task $task, bool $generate = true)
+    public function verify(Task $task)
     {
-        # ---------------------
-        # generate unit-of-works
-        # ---------------------
-        if (!$task->currentHandlerIsCompleted()) {
-            if ($generate) {
-                $this->generateItems($task);
+        $task->processedItems = $this->countFinishedItems($task);
+        $task->percent = $this->calculatePercent($task);
+        $nextItem = $this->generateNextItem($task);
+
+        // move next handler
+        if (!$nextItem) {
+            $fnMoveNext = function () use ($task) {
+                $task->currentHandler = $task->nextHandler();
+                $task->currentOffset = 0;
+                $task->currentIdFromOffset = 0;
+            };
+            $fnMoveNext();
+            while ($task->currentHandler && (0 == $task->stats[$task->currentHandler] ?? 0)) {
+                $fnMoveNext();
             }
-
-            return null;
+            if ($task->currentHandler) {
+                $nextItem = $this->generateNextItem($task);
+            }
         }
 
-        # ---------------------
-        # move to next handler; complete if nothing found.
-        # ---------------------
-        $task->processedItems += $task->stats[$task->currentHandler] ?? 0;
-        $task->currentHandler = $task->nextHandler();
-        while ($task->currentHandler && (0 == $task->stats[$task->currentHandler] ?? 0)) {
-            $task->currentHandler = $task->nextHandler();
-        }
-
-        if (!$task->currentHandler) {
+        if (!$nextItem) {
             $this->finish($task);
 
+            return;
+        }
+
+        $this->publishTaskItem($nextItem);
+        $this->update($task);
+    }
+
+    private function generateNextItem(Task $task)
+    {
+        if (!$task->currentHandler || empty($task->stats[$task->currentHandler])) {
             return null;
         }
 
-        $task->currentOffset = 0;
-        $task->currentIdFromOffset = 0;
-        $task->percent = $this->calculatePercent($task);
-        $this->update($task);
-
-        if ($generate) {
-            $this->generateItems($task);
+        if ($task->currentOffset >= $task->stats[$task->currentHandler]) {
+            return null;
         }
+        $handler = $this->getHandler($task->currentHandler);
+        $idFromOffset = 0;
+        if ($task->currentOffset > 0) {
+            $idFromOffset = method_exists($handler, $_m = 'offsetToId')
+                ? call_user_func([$handler, $_m], $task, $task->currentIdFromOffset)
+                : 0;
+        }
+        $item = new TaskItem();
+        $item->taskId = $task->id;
+        $item->handler = $task->currentHandler;
+        $item->offset = $task->currentOffset;
+        $item->offsetId = $idFromOffset;
+        $item->service = $task->service;
+        $item->status = TaskItem::IN_PROGRESS;
+        $this->createItem($item);
+
+        $task->currentOffset++;
+        $task->currentIdFromOffset = $idFromOffset;
+
+        return $item;
     }
 
-    private function generateItems(Task $task)
+    private function countFinishedItems(Task $task): int
     {
-        $handler = $this->getHandler($task->currentHandler);
-        $packages = [];
-        $numOfChunks = 100; // avoid to generate too many tasks once
-        $maxOffset = $task->stats[$task->currentHandler];
-        $offset = $task->currentOffset;
-        for ($i = 0; $i < $numOfChunks && $offset < $maxOffset; $i++) {
-            $offset = $task->currentOffset + $i;
-            $isLast = ($i == $numOfChunks - 1) || ($offset == $maxOffset - 1);
-            $idFromOffset = 0;
-            if ($offset > 0) {
-                $idFromOffset = method_exists($handler, 'offsetToId')
-                    ? $handler->offsetToId($task, $task->currentIdFromOffset)
-                    : 0;
-            }
+        return (int)$this
+            ->db
+            ->executeQuery('SELECT COUNT(1) FROM index_task_item WHERE task_id = ? AND status = ?', [$task->id, TaskItem::FINISHED])
+            ->fetchColumn();
+    }
 
-            $payload = [
-                'handler'             => $task->currentHandler,
-                'id'                  => $task->id,
-                'currentOffset'       => $i,
-                'currentIdFromOffset' => $idFromOffset,
-                'isLast'              => $isLast,
-            ];
-
-            $packages[] = [
-                $payload,
-                IndexService::WORKER_TASK_PROCESS,
-                ['id' => $task->id],
-            ];
-
-            $task->currentIdFromOffset = $idFromOffset;
-        }
-
-        $task->currentOffset = $offset;
-        $this->update($task);
-
-        foreach ($packages as $package) {
-            $this->queue->publish($package[0], $package[1], $package[2]);
-        }
+    public function publishTaskItem(TaskItem $item)
+    {
+        $payload = ['id' => $item->id, 'service' => $item->service];
+        $this->queue->publish($payload, IndexService::WORKER_TASK_PROCESS);
     }
 
     private function calculatePercent(Task $task)
     {
+        if ($task->totalItems == 0) {
+            return 100;
+        }
+
         return ($task->processedItems / $task->totalItems) * 100;
     }
 

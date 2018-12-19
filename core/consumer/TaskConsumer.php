@@ -7,6 +7,7 @@ use go1\util\contract\ServiceConsumerInterface;
 use go1\util_index\HistoryRepository;
 use go1\util_index\IndexService;
 use go1\util_index\task\Task;
+use go1\util_index\task\TaskItem;
 use go1\util_index\task\TaskRepository;
 use stdClass;
 
@@ -30,30 +31,39 @@ class TaskConsumer implements ServiceConsumerInterface
 
     public function consume(string $routingKey, stdClass $payload, stdClass $context = null)
     {
-        if (IndexService::WORKER_TASK_PROCESS === $routingKey) {
-            if ($task = $this->repository->load($payload->id)) {
-                try {
-                    $this->process($payload, $task);
-                    $this->repository->verify($task, !empty($payload->isLast));
-                } catch (Exception $e) {
-                    $this->history->write('task_process', $task->id, 500, ['message' => $e->getMessage(), 'data' => $payload]);
-                }
-            }
-        }
-    }
-
-    private function process(stdClass &$payload, Task $task)
-    {
-        if (!$handler = $this->repository->getHandler($task->currentHandler)) {
+        if (IndexService::WORKER_TASK_PROCESS != $routingKey || $payload->service != SERVICE_NAME) {
             return;
         }
 
+        if (!$item = $this->repository->loadItem($payload->id)) {
+            return;
+        }
+        if (!$task = $this->repository->load($item->taskId)) {
+            return;
+        }
+
+        try {
+            $processTask = clone $task;
+            $item->processed = $this->process($item, $processTask);
+            $item->status = TaskItem::FINISHED;
+            $this->repository->updateTaskItem($item);
+            $this->repository->verify($task);
+        } catch (Exception $e) {
+            $this->history->write('task_process', $task->id, 500, ['message' => $e->getMessage(), 'data' => $payload]);
+        }
+    }
+
+    private function process(TaskItem $item, Task $task)
+    {
+        if (!$handler = $this->repository->getHandler($item->handler)) {
+            return 0;
+        }
+
         $limit = isset($handler::$limit) ? $handler::$limit : $task->limit;
-        $task->offset = $payload->currentOffset ?? 0;
-        $task->offset = $task->offset * $limit;
-        $task->offsetId = $payload->currentIdFromOffset ?? 0;
-        $task->currentIdFromOffset = $payload->currentIdFromOffset ?? 0;
+        $task->offset = $item->offset;
+        $task->offsetId = $item->offsetId;
         $task->limit = $limit;
-        $handler->handle($task);
+        $task->currentHandler = $item->handler;
+        return $handler->handle($task);
     }
 }

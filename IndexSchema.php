@@ -68,5 +68,17 @@ class IndexSchema
             $table->addIndex(['offset_id']);
             $table->addIndex(['status']);
         }
+
+        // add data for index_task_item
+        $table = $schema->getTable('index_task_item');
+        if ($table->hasColumn('handle')) {
+            $table->dropColumn('handle');
+            $table->addColumn('handler', 'string');
+        }
+        !$table->hasColumn('data') && $table->addColumn('data', 'blob');
+        if (!$table->hasColumn('updated')) {
+            $table->addColumn('updated', 'integer', ['default' => 0]);
+            $table->addIndex(['updated'], 'idx_index_task_item_updated');
+        }
     }
 }

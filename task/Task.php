@@ -36,6 +36,7 @@ class Task implements JsonSerializable
     public $processedItems;
     public $failureItems;
 
+    public $service;
     public $aliasName;
     public $routing;
     public $removeRedundant;
@@ -68,6 +69,7 @@ class Task implements JsonSerializable
         $task->processedItems = $data['processedItems'] ?? 0;
         $task->failureItems = $data['failureItems'] ?? 0;
         $task->removeRedundant = $data['removeRedundant'] ?? false;
+        $task->service = $data['service'] ?? 'internal-index';
 
         return $task;
     }
@@ -130,6 +132,7 @@ class Task implements JsonSerializable
                 'totalItems'          => $this->totalItems,
                 'processedItems'      => $this->processedItems,
                 'failureItems'        => $this->failureItems,
+                'service'             => $this->service,
             ]),
         ];
 
