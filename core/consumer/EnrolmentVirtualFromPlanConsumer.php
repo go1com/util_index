@@ -294,12 +294,18 @@ class EnrolmentVirtualFromPlanConsumer extends EnrolmentConsumer
 
     private function createVirtualEnrolment(stdClass $plan, stdClass $user, stdClass $entity)
     {
-        $indices = $this->indices($plan, $entity);
-        $this->repository->create([
-            'type' => Schema::O_ENROLMENT,
-            'id'   => self::id($plan->id),
-            'body' => $this->virtualFormat($plan, $user, $entity),
-        ], $indices);
+        try {
+            $this->esClient->create([
+                'index'   => Schema::INDEX,
+                'routing' => $plan->instance_id,
+                'type'    => Schema::O_ENROLMENT,
+                'id'      => self::id($plan->id),
+                'refresh' => $this->waitForCompletion,
+                'body'    => $this->virtualFormat($plan, $user, $entity),
+            ]);
+        } catch (ElasticsearchException $e) {
+            $this->history->write(Schema::O_ENROLMENT, $plan->id, $e->getCode(), $e->getMessage());
+        }
     }
 
     private function indices(stdClass $plan, stdClass $entity, stdClass $enrolment = null): array
