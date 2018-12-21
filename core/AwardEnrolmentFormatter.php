@@ -16,7 +16,7 @@ use go1\util\user\UserHelper;
 use go1\util_index\IndexHelper;
 use stdClass;
 
-class AwardEnrolmentFormatter
+class AwardEnrolmentFormatter implements IndexFormatterInterface
 {
     private $go1;
     private $award;

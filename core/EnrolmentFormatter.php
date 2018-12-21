@@ -28,7 +28,7 @@ use go1\util\user\UserHelper;
 use go1\util_index\IndexHelper;
 use stdClass;
 
-class EnrolmentFormatter
+class EnrolmentFormatter implements IndexFormatterInterface
 {
     private $go1;
     private $assignment;

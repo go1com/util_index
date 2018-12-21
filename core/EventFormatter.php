@@ -8,7 +8,7 @@ use go1\util\Country;
 use go1\util\lo\LoHelper;
 use stdClass;
 
-class EventFormatter
+class EventFormatter implements IndexFormatterInterface
 {
     private $go1;
     private $loClient;

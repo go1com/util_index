@@ -11,6 +11,7 @@ use go1\util\es\Schema;
 use go1\util\lo\LoHelper;
 use go1\util\queue\Queue;
 use go1\util_index\core\EnrolmentFormatter;
+use go1\util_index\core\IndexFormatterInterface;
 use go1\util_index\HistoryRepository;
 use ONGR\ElasticsearchDSL\Query\Compound\BoolQuery;
 use ONGR\ElasticsearchDSL\Query\TermLevel\IdsQuery;
@@ -32,7 +33,7 @@ class LoAssessorConsumer implements ServiceConsumerInterface
         Connection $go1,
         Client $client,
         HistoryRepository $history,
-        EnrolmentFormatter $enrolmentFormatter,
+        IndexFormatterInterface $enrolmentFormatter,
         bool $waitForCompletion,
         MqClient $queue
     ) {
@@ -78,7 +79,7 @@ class LoAssessorConsumer implements ServiceConsumerInterface
         $assessors = LoHelper::assessorIds($this->go1, $courseId);
         try {
             $this->es->updateByQuery([
-                'index'               => Schema::INDEX,
+                'index'               => Schema::LEARNING_RECORD_INDEX,
                 'type'                => Schema::O_LO,
                 'body'                => [
                     'query'  => (new IdsQuery([$courseId]))->toArray(),

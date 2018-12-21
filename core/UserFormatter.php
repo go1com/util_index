@@ -13,7 +13,7 @@ use go1\util\user\ManagerHelper;
 use go1\util\user\UserHelper;
 use stdClass;
 
-class UserFormatter
+class UserFormatter implements IndexFormatterInterface
 {
     private $go1;
     private $social;

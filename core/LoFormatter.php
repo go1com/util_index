@@ -29,7 +29,7 @@ use go1\util\vote\VoteHelper;
 use go1\util\vote\VoteTypes;
 use stdClass;
 
-class LoFormatter
+class LoFormatter implements IndexFormatterInterface
 {
     private $go1;
     private $social;

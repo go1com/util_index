@@ -6,6 +6,7 @@ use Doctrine\DBAL\Connection;
 use Elasticsearch\Client;
 use Elasticsearch\Common\Exceptions\ElasticsearchException;
 use Exception;
+use go1\core\learning_record\commerce\payment_index\domain\formatter\EckDataFormatter;
 use go1\core\learning_record\enrolment\index\Microservice;
 use go1\util\contract\ServiceConsumerInterface;
 use go1\util\enrolment\EnrolmentHelper;
@@ -22,6 +23,7 @@ use go1\util\queue\Queue;
 use go1\util\user\UserHelper;
 use go1\util_index\core\AccountFieldFormatter;
 use go1\util_index\core\EnrolmentFormatter;
+use go1\util_index\core\IndexFormatterInterface;
 use go1\util_index\core\LoFormatter;
 use go1\util_index\core\UserFormatter;
 use go1\util_index\ElasticSearchRepository;
@@ -45,9 +47,13 @@ class EnrolmentConsumer implements ServiceConsumerInterface
     protected $go1;
     protected $social;
     protected $accountsName;
+    /** @var EnrolmentFormatter  */
     protected $formatter;
+    /** @var LoFormatter  */
     protected $loFormatter;
+    /** @var UserFormatter  */
     protected $userFormatter;
+    /** @var EckDataFormatter */
     protected $eckDataFormatter;
     protected $waitForCompletion;
     protected $repository;
@@ -59,10 +65,10 @@ class EnrolmentConsumer implements ServiceConsumerInterface
         Connection $go1,
         ?Connection $social,
         string $accountsName,
-        EnrolmentFormatter $formatter,
-        LoFormatter $loFormatter,
-        UserFormatter $userFormatter,
-        AccountFieldFormatter $eckDataFormatter,
+        IndexFormatterInterface $formatter,
+        IndexFormatterInterface $loFormatter,
+        IndexFormatterInterface $userFormatter,
+        IndexFormatterInterface $eckDataFormatter,
         bool $waitForCompletion,
         ElasticSearchRepository $repository
     ) {
@@ -257,6 +263,7 @@ class EnrolmentConsumer implements ServiceConsumerInterface
     {
         $params = [
             'index'               => Schema::LEARNING_RECORD_INDEX,
+            'routing'             => $lo->instance_id,
             'type'                => Schema::O_ENROLMENT,
             'body'                => [
                 'query'  => (new TermQuery('lo_id', $lo->id))->toArray(),

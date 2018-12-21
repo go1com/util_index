@@ -6,7 +6,7 @@ use Doctrine\DBAL\Connection;
 use go1\util\eck\EckHelper;
 use stdClass;
 
-class AccountFieldFormatter
+class AccountFieldFormatter implements IndexFormatterInterface
 {
     private $go1;
     private $eck;

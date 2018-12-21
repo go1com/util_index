@@ -22,6 +22,7 @@ use go1\util\user\UserHelper;
 use go1\util_index\core\AccountFieldFormatter;
 use go1\util_index\core\AwardEnrolmentFormatter;
 use go1\util_index\core\EnrolmentFormatter;
+use go1\util_index\core\IndexFormatterInterface;
 use go1\util_index\core\LoFormatter;
 use go1\util_index\core\UserFormatter;
 use go1\util_index\ElasticSearchRepository;
@@ -43,11 +44,11 @@ class EnrolmentVirtualFromPlanConsumer extends EnrolmentConsumer
         Connection $social,
         Connection $award,
         string $accountsName,
-        EnrolmentFormatter $formatter,
-        AwardEnrolmentFormatter $awardEnrolmentFormatter,
-        LoFormatter $loFormatter,
-        UserFormatter $userFormatter,
-        AccountFieldFormatter $eckDataFormatter,
+        IndexFormatterInterface $formatter,
+        IndexFormatterInterface $awardEnrolmentFormatter,
+        IndexFormatterInterface $loFormatter,
+        IndexFormatterInterface $userFormatter,
+        IndexFormatterInterface $eckDataFormatter,
         bool $waitForCompletion,
         ElasticSearchRepository $repository
     ) {
