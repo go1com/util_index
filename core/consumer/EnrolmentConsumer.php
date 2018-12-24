@@ -185,15 +185,12 @@ class EnrolmentConsumer implements ServiceConsumerInterface
             ]);
 
             $user = UserHelper::loadByProfileId($this->go1, $enrolment->profile_id, $this->accountsName);
-            $plan = PlanHelper::loadByEntityAndUser($this->go1, PlanTypes::ENTITY_LO, $enrolment->lo_id, $user->id);
-            if ($plan) {
-                $this->esClient->delete([
-                    'index'   => Schema::LEARNING_RECORD_INDEX,
-                    'routing' => $plan->instance_id,
-                    'type'    => Schema::O_ENROLMENT,
-                    'id'      => EnrolmentTypes::TYPE_PLAN_ASSIGNED.":{$plan->id}",
-                ]);
-            }
+            $this->esClient->delete([
+                'index'   => Schema::LEARNING_RECORD_INDEX,
+                'routing' => $enrolment->taken_instance_id,
+                'type'    => Schema::O_ENROLMENT,
+                'id'      => EnrolmentTypes::TYPE_PLAN_ASSIGNED."$user->id:$enrolment->lo_id",
+            ]);
         } catch (ElasticsearchException $e) {
             $this->history->write(Schema::O_ENROLMENT, $enrolment->id, $e->getCode(), $e->getMessage());
         }
