@@ -268,7 +268,7 @@ class TaskRepository
             $payload = [
                 'handler'             => $task->currentHandler,
                 'id'                  => $task->id,
-                'currentOffset'       => $i,
+                'currentOffset'       => $offset,
                 'currentIdFromOffset' => $idFromOffset,
                 'isLast'              => $isLast,
             ];

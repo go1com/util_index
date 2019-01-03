@@ -49,7 +49,7 @@ class TaskConsumer implements ServiceConsumerInterface
             return;
         }
         $limit = isset($handler::$limit) ? $handler::$limit : $task->limit;
-        $task->offset = $payload->currentOffset ?? 0;
+        $task->offset = ($payload->currentOffset ?? 0) * $limit;
         $task->offsetId = $payload->currentIdFromOffset ?? 0;
         $task->currentIdFromOffset = $payload->currentIdFromOffset ?? 0;
         $task->limit = $limit;
