@@ -86,7 +86,7 @@ class EsWriterClient
         $this->validate($params, 'body');
         # Parse ElasticSearch\Client::bulk into es writer
         $offset = 0;
-        while (isset($params['body'][$offset])) {
+        while (isset($params['body'][$offset]) && isset($params['body'][$offset + 1])) {
             $op = array_keys($params['body'][$offset])[0];
             $metadata = $params['body'][$offset][$op];
 
