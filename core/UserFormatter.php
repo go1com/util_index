@@ -46,10 +46,10 @@ class UserFormatter
 
     public function formatPortalAccount(PortalAccount $account, $teaser = false)
     {
-        $instance = $this->go1->fetchColumn('SELECT instance FROM gc_user WHERE id = ?', [$account->legacyId]);
+        $portalName = $this->go1->fetchColumn('SELECT instance FROM gc_user WHERE id = ?', [$account->legacyId]);
 
         $doc = [
-            'id'           => (int) $account->id,
+            'id'           => $account->legacyId,
             'profile_id'   => $account->profileId,
             'mail'         => $account->user->email,
             'name'         => trim("{$account->firstName} {$account->lastName}"),
@@ -60,13 +60,13 @@ class UserFormatter
             'timestamp'    => DateTime::formatDate(!empty($account->timestamp) ? $account->timestamp : time()),
             'login'        => !$account->lastLoggedInAt ? null : DateTime::formatDate($account->lastLoggedInAt->getTimestamp()),
             'access'       => DateTime::formatDate(!empty($account->access) ? $account->access : time()),
-            'status'       => ('ACTIVE' === $user->status) ? 1 : 0,
-            'allow_public' => $account->user->allowPublic,
+            'status'       => ('ACTIVE' === $account->status) ? 1 : 0,
+            'allow_public' => $account->user->allowPublic ? 1 : 0,
             'avatar'       => $account->avatarUri,
-            'instance'     => $instance,
+            'instance'     => $portalName,
         ];
 
-        $entity = EckHelper::load($this->eck, $instance, CustomerEsSchema::O_ACCOUNT, $account->legacyId);
+        $entity = EckHelper::load($this->eck, $portalName, CustomerEsSchema::O_ACCOUNT, $account->legacyId);
         $doc += $this->eckDataFormatter->format(json_decode(json_encode($entity)));
 
         if (!$teaser) {
@@ -75,9 +75,10 @@ class UserFormatter
                 'managers' => [],
             ];
 
-            if ($this->accountsName !== $account->instance) {
-                $portalId = PortalHelper::idFromName($this->go1, $account->instance);
+            $portalName = $this->go1->fetchColumn('SELECT instance FROM gc_accounts WHERE id = ?', [$account->legacyId]);
 
+            if ($this->accountsName !== $portalName) {
+                $portalId = PortalHelper::idFromName($this->go1, $portalName);
                 if ($this->group) {
                     $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $account->legacyId);
                 }
