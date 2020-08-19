@@ -17,6 +17,11 @@ class EsWriterClient
         $this->routingKey = $routingKey;
     }
 
+    public function setRoutingKey(string $routingKey)
+    {
+        $this->routingKey = $routingKey;
+    }
+
     private function validate(array $params, string $requiredFields)
     {
         $assertion = Assert::lazy();

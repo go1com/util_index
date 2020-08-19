@@ -40,6 +40,8 @@ class Task implements JsonSerializable
     public $routing;
     public $removeRedundant;
 
+    public $esWriterRoutingKey;
+
     public static function create(stdClass $input): Task
     {
         $task = new Task;
@@ -68,6 +70,7 @@ class Task implements JsonSerializable
         $task->processedItems = $data['processedItems'] ?? 0;
         $task->failureItems = $data['failureItems'] ?? 0;
         $task->removeRedundant = $data['removeRedundant'] ?? false;
+        $task->esWriterRoutingKey = $data['esWriterRoutingKey'] ?? null;
 
         return $task;
     }
