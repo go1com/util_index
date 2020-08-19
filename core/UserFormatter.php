@@ -3,6 +3,9 @@
 namespace go1\util_index\core;
 
 use Doctrine\DBAL\Connection;
+use go1\core\util\client\federation_api\v1\RoleMapper;
+use go1\core\util\client\federation_api\v1\schema\object\PortalAccount;
+use go1\core\util\client\federation_api\v1\schema\object\User;
 use go1\util\customer\CustomerEsSchema;
 use go1\util\DateTime;
 use go1\util\eck\EckHelper;
@@ -41,6 +44,92 @@ class UserFormatter
         return array_map('intval', ManagerHelper::userManagerIds($this->go1, $accountId));
     }
 
+    public function formatPortalAccount(PortalAccount $account, $teaser = false)
+    {
+        $instance = $this->go1->fetchColumn('SELECT instance FROM gc_user WHERE id = ?', [$account->legacyId]);
+
+        $doc = [
+            'id'           => (int) $account->id,
+            'profile_id'   => $account->profileId,
+            'mail'         => $account->user->email,
+            'name'         => trim("{$account->firstName} {$account->lastName}"),
+            'first_name'   => $account->firstName,
+            'last_name'    => $account->lastName,
+            'created'      => DateTime::formatDate(!empty($account->created) ? $account->created : time()),
+            'created'      => DateTime::formatDate(!empty($account->createdAt) ? $account->createdAt->getTimestamp() : time()),
+            'timestamp'    => DateTime::formatDate(!empty($account->timestamp) ? $account->timestamp : time()),
+            'login'        => !$account->lastLoggedInAt ? null : DateTime::formatDate($account->lastLoggedInAt->getTimestamp()),
+            'access'       => DateTime::formatDate(!empty($account->access) ? $account->access : time()),
+            'status'       => ('ACTIVE' === $user->status) ? 1 : 0,
+            'allow_public' => $account->user->allowPublic,
+            'avatar'       => $account->avatarUri,
+            'instance'     => $instance,
+        ];
+
+        $entity = EckHelper::load($this->eck, $instance, CustomerEsSchema::O_ACCOUNT, $account->legacyId);
+        $doc += $this->eckDataFormatter->format(json_decode(json_encode($entity)));
+
+        if (!$teaser) {
+            $doc += [
+                'roles'    => array_map(fn($role) => RoleMapper::fromEnumSymbol($role->name), $account->roles ?? []),
+                'managers' => [],
+            ];
+
+            if ($this->accountsName !== $account->instance) {
+                $portalId = PortalHelper::idFromName($this->go1, $account->instance);
+
+                if ($this->group) {
+                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $account->legacyId);
+                }
+
+                $doc['managers'] = $this->formatManagers($account->legacyId);
+                $doc['metadata'] = [
+                    'instance_id' => $portalId,
+                    'updated_at'  => time(),
+                    'user_id'     => $account->user->legacyId,
+                ];
+            }
+        }
+
+        return $doc;
+    }
+
+    public function formatUser(User $user, $teaser = false)
+    {
+        $doc = [
+            'id'           => (int) $user->id,
+            'profile_id'   => $user->profileId,
+            'mail'         => $user->email,
+            'name'         => trim("{$user->firstName} {$user->lastName}"),
+            'first_name'   => $user->firstName,
+            'last_name'    => $user->lastName,
+            'created'      => DateTime::formatDate(!empty($user->createdAt) ? $user->createdAt->getTimestamp() : time()),
+            'timestamp'    => DateTime::formatDate($user->timestamp ? $user->timestamp->getTimestamp() : time()),
+            'login'        => !$user->lastLoggedInAt ? null : DateTime::formatDate($user->lastLoggedInAt->getTimestamp()),
+            'access'       => DateTime::formatDate(!$user->lastAccessedAt ? time() : $user->lastAccessedAt->getTimestamp()),
+            'status'       => ('ACTIVE' === $user->status) ? 1 : 0,
+            'allow_public' => $user->allowPublic ? 1 : 0,
+            'avatar'       => $user->avatarUri,
+        ];
+
+        if (!$teaser) {
+            $doc += [
+                'roles'    => array_map(fn($role) => RoleMapper::fromEnumSymbol($role->name), $user->roles ?? []),
+                'managers' => [],
+            ];
+        }
+
+        return $doc;
+    }
+
+    /**
+     * @param stdClass $user
+     * @param false    $teaser
+     * @return array
+     * @throws \Doctrine\DBAL\DBALException
+     * @deprecated Use ::formatUser() or ::formatPortalAccount().
+     *
+     */
     public function format(stdClass $user, $teaser = false)
     {
         if (isset($user->data) && is_scalar($user->data)) {
