@@ -55,7 +55,6 @@ class UserFormatter
             'name'         => trim("{$account->firstName} {$account->lastName}"),
             'first_name'   => $account->firstName,
             'last_name'    => $account->lastName,
-            'created'      => DateTime::formatDate(!empty($account->created) ? $account->created : time()),
             'created'      => DateTime::formatDate(!empty($account->createdAt) ? $account->createdAt->getTimestamp() : time()),
             'timestamp'    => DateTime::formatDate(!empty($account->timestamp) ? $account->timestamp : time()),
             'login'        => !$account->lastLoggedInAt ? null : DateTime::formatDate($account->lastLoggedInAt->getTimestamp()),
