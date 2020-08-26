@@ -48,6 +48,11 @@ class UserFormatter
     {
         $portalName = $this->go1->fetchColumn('SELECT instance FROM gc_user WHERE id = ?', [$account->legacyId]);
 
+        $createdAt = ($account->createdAt && $account->createdAt->getTimestamp()) ? $account->createdAt->getTimestamp() : time();
+        $timestamp = ($account->timestamp && $account->timestamp->getTimestamp()) ? $account->timestamp->getTimestamp() : time();
+        $lastAccessedAt = ($account->lastAccessedAt && $account->lastAccessedAt->getTimestamp()) ? $account->lastAccessedAt->getTimestamp() : time();
+        $lastLoggedInAt = ($account->lastLoggedInAt && $account->lastLoggedInAt->getTimestamp()) ? $account->lastLoggedInAt->getTimestamp() : null;
+
         $doc = [
             'id'           => $account->legacyId,
             'profile_id'   => $account->profileId,
@@ -55,10 +60,10 @@ class UserFormatter
             'name'         => trim("{$account->firstName} {$account->lastName}"),
             'first_name'   => $account->firstName,
             'last_name'    => $account->lastName,
-            'created'      => DateTime::formatDate(!empty($account->createdAt) ? $account->createdAt->getTimestamp() : time()),
-            'timestamp'    => DateTime::formatDate(!empty($account->timestamp) ? $account->timestamp->getTimestamp() : time()),
-            'login'        => !$account->lastLoggedInAt ? null : DateTime::formatDate($account->lastLoggedInAt->getTimestamp()),
-            'access'       => DateTime::formatDate(!empty($account->lastAccessedAt) ? $account->lastAccessedAt->getTimestamp() : time()),
+            'created'      => $createdAt ? DateTime::formatDate($createdAt) : null,
+            'timestamp'    => $timestamp ? DateTime::formatDate($timestamp) : null,
+            'login'        => $lastLoggedInAt ? DateTime::formatDate($lastLoggedInAt) : null,
+            'access'       => $lastAccessedAt ? DateTime::formatDate($lastAccessedAt) : null,
             'status'       => ('ACTIVE' === $account->status) ? 1 : 0,
             'allow_public' => $account->user->allowPublic ? 1 : 0,
             'avatar'       => $account->avatarUri,
