@@ -31,7 +31,7 @@ class EsWriterClient
         $assertion->verifyNow();
     }
 
-    public function delete($params)
+    public function delete($params, bool $batch = false)
     {
         $this->validate($params, 'index,type,id,routing');
         $uri = sprintf(
@@ -42,33 +42,41 @@ class EsWriterClient
             $params['routing']
         );
 
-        $this->mqClient->publish(['uri' => $uri, 'http_method' => 'DELETE'], $this->routingKey);
+        $batch
+            ? $this->mqClient->batchAdd(['uri' => $uri, 'http_method' => 'DELETE'], $this->routingKey)
+            : $this->mqClient->publish(['uri' => $uri, 'http_method' => 'DELETE'], $this->routingKey);
     }
 
-    public function updateByQuery($params)
+    public function updateByQuery($params, bool $batch = false)
     {
         $this->validate($params, 'index,type,body');
 
         $uri = sprintf('/%s/%s/_update_by_query', $params['index'], $params['type']);
         isset($params['routing']) && $uri .= sprintf('?routing=%s', $params['routing']);
-        $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
+
+        $batch
+            ? $this->mqClient->batchAdd(['uri' => $uri, 'body' => $params['body']], $this->routingKey)
+            : $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
     }
 
-    public function deleteByQuery($params)
+    public function deleteByQuery($params, bool $batch = false)
     {
         $this->validate($params, 'index,type,body');
 
         $uri = sprintf('/%s/%s/_delete_by_query', $params['index'], $params['type']);
         isset($params['routing']) && $uri .= sprintf('?routing=%s', $params['routing']);
-        $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
+
+        $batch
+            ? $this->mqClient->batchAdd(['uri' => $uri, 'body' => $params['body']], $this->routingKey)
+            : $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
     }
 
-    public function index($params)
+    public function index($params, bool $batch = false)
     {
-        $this->create($params);
+        $this->create($params, $batch);
     }
 
-    public function create($params)
+    public function create($params, bool $batch = false)
     {
         $this->validate($params, 'index,type,id,body,routing');
         $uri = sprintf(
@@ -78,10 +86,14 @@ class EsWriterClient
             $params['id'],
             $params['routing']
         );
-        $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
+
+        $batch
+            ? $this->mqClient->batchAdd(['uri' => $uri, 'body' => $params['body']], $this->routingKey)
+            : $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
+
     }
 
-    public function update($params)
+    public function update($params, bool $batch = false)
     {
         $this->validate($params, 'index,type,id,body,routing');
         $uri = sprintf(
@@ -92,7 +104,9 @@ class EsWriterClient
             $params['routing']
         );
 
-        $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
+        $batch
+            ? $this->mqClient->batchAdd(['uri' => $uri, 'body' => $params['body']], $this->routingKey)
+            : $this->mqClient->publish(['uri' => $uri, 'body' => $params['body']], $this->routingKey);
     }
 
     public function bulk($params)
@@ -100,6 +114,7 @@ class EsWriterClient
         $this->validate($params, 'body');
         # Parse ElasticSearch\Client::bulk into es writer
         $offset = 0;
+        $batch = true;
         while (isset($params['body'][$offset])) {
             $op = array_keys($params['body'][$offset])[0];
             $metadata = $params['body'][$offset][$op];
@@ -113,19 +128,19 @@ class EsWriterClient
             ];
             switch ($op) {
                 case 'index':
-                    $this->index($_params);
+                    $this->index($_params, $batch);
                     break;
 
                 case 'create':
-                    $this->create($_params);
+                    $this->create($_params, $batch);
                     break;
 
                 case 'update':
-                    $this->update($_params);
+                    $this->update($_params, $batch);
                     break;
 
                 case 'delete':
-                    $this->delete($_params);
+                    $this->delete($_params, $batch);
                     break;
 
                 default:
