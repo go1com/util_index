@@ -150,6 +150,7 @@ class EsWriterClient
             $offset += 2;
         }
 
+        $this->mqClient->batchDone();
         return [];
     }
 }
