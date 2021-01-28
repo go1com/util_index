@@ -3,6 +3,7 @@
 namespace go1\util_index\core;
 
 use Doctrine\DBAL\Connection;
+use go1\core\group\group_schema\v1\constant\GroupMembershipMode;
 use go1\core\util\client\federation_api\v1\RoleMapper;
 use go1\core\util\client\federation_api\v1\schema\object\PortalAccount;
 use go1\core\util\client\federation_api\v1\schema\object\User;
@@ -84,7 +85,7 @@ class UserFormatter
             if ($this->accountsName !== $portalName) {
                 $portalId = PortalHelper::idFromName($this->go1, $portalName);
                 if ($this->group) {
-                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $account->legacyId);
+                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $account->legacyId, GroupMembershipMode::MEMBERS);
                 }
 
                 $doc['managers'] = $this->formatManagers($account->legacyId);
@@ -181,7 +182,7 @@ class UserFormatter
                 $portalId = PortalHelper::idFromName($this->go1, $user->instance);
 
                 if ($this->group) {
-                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $user->id);
+                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $user->id, GroupMembershipMode::MEMBERS);
                 }
 
                 $doc['managers'] = $this->formatManagers($user->id);
