@@ -121,6 +121,7 @@ JAVA;
 
         $fields = implode(",", $fields);
         $this->script[] = <<<JAVA
+    if (ctx._source.$field instanceof ArrayList) { ctx._source.$field = null; }
     if (ctx._source.$field == null) {
     	ctx._source.$field = [
     	    $fields
