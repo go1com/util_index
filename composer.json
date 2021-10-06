@@ -15,11 +15,17 @@
     "elasticsearch/elasticsearch": "^5.0",
     "go1/app":                     "dev-master",
     "go1/util":                    "dev-master",
+    "go1.core/util":               "dev-master",
+    "go1.core/group.schema":       "dev-master",
     "go1/util_core":               "dev-master",
     "go1/util_core_clients":       "dev-master",
     "monolog/monolog":             "^1.19.0",
     "ongr/elasticsearch-dsl":      "^5.0"
   },
+  "repositories":      [
+    { "name": "go1.core/group.schema", "type": "vcs", "url": "git@code.go1.com.au:go1-core/group/group-schema.git" },
+    { "type": "vcs", "url": "git@code.go1.com.au:mirror/go1-core/util.git" }
+  ],
   "scripts":           {
     "lint": "php-cs-fixer fix --using-cache=no --rules='{\"braces\": {\"allow_single_line_closure\": true}}' ."
   }

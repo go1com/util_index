@@ -9,6 +9,7 @@ use go1\core\util\client\federation_api\v1\schema\object\PortalAccount;
 use go1\core\util\client\federation_api\v1\schema\object\User;
 use go1\util\customer\CustomerEsSchema;
 use go1\util\DateTime;
+use go1\util\DB;
 use go1\util\eck\EckHelper;
 use go1\util\group\GroupHelper;
 use go1\util\portal\PortalHelper;
@@ -182,7 +183,15 @@ class UserFormatter
                 $portalId = PortalHelper::idFromName($this->go1, $user->instance);
 
                 if ($this->group) {
-                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $user->id, GroupMembershipMode::MEMBERS);
+                    $memberships = $this->group
+                        ->executeQuery(
+                            'SELECT group_id AS groupId FROM group_membership WHERE portal_id = ? AND status = 1 AND user_id IN (?)',
+                            [$portalId, [$user->id]],
+                            [DB::INTEGER, DB::INTEGERS]
+                        )->fetchAll();
+
+                    $doc['groupIds'] = array_map('intval', array_column($memberships, 'groupId'));
+                    $doc['groups'] = empty($doc['groupIds']) ? [] : GroupHelper::userGroupTitles($this->group, $portalId, $user->id, GroupMembershipMode::MEMBERS);
                 }
 
                 $doc['managers'] = $this->formatManagers($user->id);
