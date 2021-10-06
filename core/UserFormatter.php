@@ -86,7 +86,11 @@ class UserFormatter
             if ($this->accountsName !== $portalName) {
                 $portalId = PortalHelper::idFromName($this->go1, $portalName);
                 if ($this->group) {
-                    $doc['groups'] = GroupHelper::userGroupTitles($this->group, $portalId, $account->legacyId, GroupMembershipMode::MEMBERS);
+                    if ($this->group) {
+                        [$groupIds, $groups] = $this->fetchGroupData($portalId, $account->legacyId);
+                        $doc['groupIds'] = $groupIds;
+                        $doc['groups'] = $groups;
+                    }
                 }
 
                 $doc['managers'] = $this->formatManagers($account->legacyId);
@@ -183,15 +187,9 @@ class UserFormatter
                 $portalId = PortalHelper::idFromName($this->go1, $user->instance);
 
                 if ($this->group) {
-                    $memberships = $this->group
-                        ->executeQuery(
-                            'SELECT group_id AS groupId FROM group_membership WHERE portal_id = ? AND status = 1 AND user_id IN (?)',
-                            [$portalId, [$user->id]],
-                            [DB::INTEGER, DB::INTEGERS]
-                        )->fetchAll();
-
-                    $doc['groupIds'] = array_map('intval', array_column($memberships, 'groupId'));
-                    $doc['groups'] = empty($doc['groupIds']) ? [] : GroupHelper::userGroupTitles($this->group, $portalId, $user->id, GroupMembershipMode::MEMBERS);
+                    [$groupIds, $groups] = $this->fetchGroupData($portalId, $user->id);
+                    $doc['groupIds'] = $groupIds;
+                    $doc['groups'] = $groups;
                 }
 
                 $doc['managers'] = $this->formatManagers($user->id);
@@ -207,5 +205,20 @@ class UserFormatter
         }
 
         return $doc;
+    }
+
+    private function fetchGroupData(int $portalId, int $userId): array
+    {
+        $memberships = $this->group
+            ->executeQuery(
+                'SELECT group_id AS groupId FROM group_membership WHERE portal_id = ? AND status = 1 AND user_id IN (?)',
+                [$portalId, [$userId]],
+                [DB::INTEGER, DB::INTEGERS]
+            )->fetchAll();
+
+        $groupIds = array_map('intval', array_column($memberships, 'groupId'));
+        $groups   = empty($doc['groupIds']) ? [] : GroupHelper::userGroupTitles($this->group, $portalId, $userId, GroupMembershipMode::MEMBERS);
+
+        return [$groupIds, $groups];
     }
 }
