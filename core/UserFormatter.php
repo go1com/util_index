@@ -86,11 +86,9 @@ class UserFormatter
             if ($this->accountsName !== $portalName) {
                 $portalId = PortalHelper::idFromName($this->go1, $portalName);
                 if ($this->group) {
-                    if ($this->group) {
-                        [$groupIds, $groups] = $this->fetchGroupData($portalId, $account->legacyId);
-                        $doc['groupIds'] = $groupIds;
-                        $doc['groups'] = $groups;
-                    }
+                    [$groupIds, $groups] = $this->fetchGroupData($portalId, $account->legacyId);
+                    $doc['groupIds'] = $groupIds;
+                    $doc['groups'] = $groups;
                 }
 
                 $doc['managers'] = $this->formatManagers($account->legacyId);
@@ -217,7 +215,7 @@ class UserFormatter
             )->fetchAll();
 
         $groupIds = array_map('intval', array_column($memberships, 'groupId'));
-        $groups   = empty($doc['groupIds']) ? [] : GroupHelper::userGroupTitles($this->group, $portalId, $userId, GroupMembershipMode::MEMBERS);
+        $groups   = empty($groupIds) ? [] : GroupHelper::userGroupTitles($this->group, $portalId, $userId, GroupMembershipMode::MEMBERS);
 
         return [$groupIds, $groups];
     }
